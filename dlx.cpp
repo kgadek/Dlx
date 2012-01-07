@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstring>
 #include <vector>
+#include <iterator>
 
 using namespace std;
 
@@ -112,8 +113,33 @@ namespace kpfp {
 
 
 int main() {
+	int cols;
+	int rows;
+	int currCols;
 	kpfp::dlxSolver a;
-	a.setColumns(7);
+	std::cout << "A1\n";
+	std::cin >> cols >> rows;
+	std::cout << "A2\n";
+	a.setColumns(cols);
+	std::cout << "A3\n";
+	while(rows--) {
+		std::cout << "\tA31\n";
+		std::cin >> currCols;
+		std::cout << "\tA32\n";
+		std::vector<int> cols;
+		int tmp;
+		while(currCols--) {
+			std::cout << "\t\tA33\n";
+			cin >> tmp;
+			cols.push_back(tmp);
+		}
+		std::cout << "\tA34\n";
+		a.addRow(cols.begin(), cols.end());
+		std::cout << "\tA35\n";
+	}
+	std::cout << "A4\n";
+	a.search();
+	std::cout << "A5\n";
 
 	return 0;
 }
