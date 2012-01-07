@@ -59,7 +59,7 @@ namespace kpfp {
 		 * Constructor.
 		 */
 		dlxSolver() {
-			h.reserve(1); // create master header
+			h.resize(1); // create master header
 		}
 
 		/**
@@ -95,10 +95,15 @@ namespace kpfp {
 		
 		/**
 		 * Fills the search matrix.
-		 * This method doesn't check assumptions.
+		 * This method doesn't check assumptions. Each row shall contain numbers in range
+		 * [1; p+s] (in ascending order) that indicate, in which columns are 1s.
+		 *
+		 * @attention setColumns must be called first.
 		 * 
+		 * @tparam InputIterator Iterator type (as described in SGI's STL documentation).
 		 * @param it Iterator pointing to integers (each x: 0 < x <= p+s) in ascending order.
 		 * @param end Iterator's end point.
+		 * @see setColumns
 		 */
 		template <class InputIterator>
 		void addRow(InputIterator it, InputIterator end);
@@ -108,11 +113,51 @@ namespace kpfp {
 
 int main() {
 	kpfp::dlxSolver a;
+	a.setColumns(7);
+
 	return 0;
 }
 
+template <class InputIterator>
+void kpfp::dlxSolver::addRow(InputIterator it, InputIterator end) {
+	dlx::node s; /* sentry */
+	s.R = &s;
+	dlx::node *l = &s; /* node to the left */
+
+	for(; it!=end; ++it) {
+		dlx::node *n = new dlx::node();
+		int hN = *it;
+		n->C = &h[hN];
+		n->U = h[hN].U;
+		n->D = &h[hN];
+		n->L = l;
+		l->R = n;
+		h[hN].U->D = n;
+		h[hN].U = n;
+		l = n;
+	}
+	l->R = s.R;
+	s.R->L = l;
+}
+
 void kpfp::dlxSolver::setColumns(unsigned int p, unsigned int s) {
-	O.reserve(p+s+1);
+	O.resize(p+s);
+	h.resize(p+s+1);
+
+	h[0].R = &h[0];
+	
+	unsigned int i = 1;
+	for(; i<=p; ++i) {
+		h[i].L = &h[i-1];
+		h[i].L->R = &h[i];
+		h[i].U = h[i].D = &h[i];
+	}
+	h[p].R = &h[0];
+	h[0].L = &h[p];
+
+	unsigned int sum = p+s;
+	for(; i<=sum; ++i)
+		h[i].L = h[i].R = h[i].U = h[i].D = &h[i];
 }
 
 void kpfp::dlxSolver::search(int k) {
