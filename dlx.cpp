@@ -30,7 +30,7 @@ namespace kpfp {
 		 */
 		struct header : public node {
 			int S; /**< Size, i.e. number of 1's in this column */
-			string N; /**< Name of current header */
+			int N; /**< Name of current header */
 		};
 	}
 
@@ -83,7 +83,7 @@ namespace kpfp {
 		 *
 		 * @return Reference to results.
 		 */
-		const std::vector<dlx::node*>& getResults() { return O; }
+		const std::vector<dlx::node*> getResults() { return O; }
 
 		/**
 		 * Set column count.
@@ -117,29 +117,19 @@ int main() {
 	int rows;
 	int currCols;
 	kpfp::dlxSolver a;
-	std::cout << "A1\n";
 	std::cin >> cols >> rows;
-	std::cout << "A2\n";
 	a.setColumns(cols);
-	std::cout << "A3\n";
 	while(rows--) {
-		std::cout << "\tA31\n";
 		std::cin >> currCols;
-		std::cout << "\tA32\n";
 		std::vector<int> cols;
 		int tmp;
 		while(currCols--) {
-			std::cout << "\t\tA33\n";
 			cin >> tmp;
 			cols.push_back(tmp);
 		}
-		std::cout << "\tA34\n";
 		a.addRow(cols.begin(), cols.end());
-		std::cout << "\tA35\n";
 	}
-	std::cout << "A4\n";
-	a.search();
-	std::cout << "A5\n";
+	a.search(0);
 
 	return 0;
 }
@@ -177,25 +167,36 @@ void kpfp::dlxSolver::setColumns(unsigned int p, unsigned int s) {
 		h[i].L = &h[i-1];
 		h[i].L->R = &h[i];
 		h[i].U = h[i].D = &h[i];
+		h[i].N = i;
 	}
 	h[p].R = &h[0];
 	h[0].L = &h[p];
 
 	unsigned int sum = p+s;
-	for(; i<=sum; ++i)
+	for(; i<=sum; ++i) {
 		h[i].L = h[i].R = h[i].U = h[i].D = &h[i];
+		h[i].N = i;
+	}
 }
 
 void kpfp::dlxSolver::search(int k) {
 	dlx::header &m = h[0];
 	// termination condition
 	if(m.R == &m) {
+		std::cout << "k=" << k << endl;
+		for(int i=0; i<k; ++i) {
+			std::cout << O[i]->C->N;
+			for(dlx::node *n=O[i]->R; n!=O[i]; n=n->R)
+				std::cout << "," << n->C->N;
+			std::cout << "\n";
+		}
+		std::cout << "---\n";
 		// print solution
 		return;
 	}
 	// select column (to minimize branching factor)
 	int s = ((dlx::header*)(m.R))->S;
-	dlx::header *c;
+	dlx::header *c = static_cast<dlx::header*>(m.R);
 	for(dlx::node *j=m.R; j!=static_cast<dlx::node*>(&m); j=j->R) {
 		if(static_cast<dlx::header*>(j)->S < s) {
 			s = static_cast<dlx::header*>(j)->S;
