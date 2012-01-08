@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <iostream>
 #include <cstring>
 #include <vector>
@@ -143,6 +144,7 @@ void kpfp::dlxSolver::addRow(InputIterator it, InputIterator end) {
 	for(; it!=end; ++it) {
 		dlx::node *n = new dlx::node();
 		int hN = *it;
+		++h[hN].S;
 		n->C = &h[hN];
 		n->U = h[hN].U;
 		n->D = &h[hN];
@@ -180,35 +182,54 @@ void kpfp::dlxSolver::setColumns(unsigned int p, unsigned int s) {
 }
 
 void kpfp::dlxSolver::search(int k) {
+	/*dbg*///printf("search(%d)\n", k);
 	dlx::header &m = h[0];
 	// termination condition
-	if(m.R == &m) {
-		std::cout << "k=" << k << endl;
+	if(m.R == &m && m.L == &m) {
+		/*dbg*///printf("\t* solution!\n\t\t");
+		std::cout << "Solution:\n";
 		for(int i=0; i<k; ++i) {
 			std::cout << O[i]->C->N;
+			/*dbg*///printf("%d", O[i]->C->N);
 			for(dlx::node *n=O[i]->R; n!=O[i]; n=n->R)
-				std::cout << "," << n->C->N;
+				std::cout << " " << n->C->N;
+				/*dbg*///printf(",%d", n->C->N);
+			/*dbg*///printf("\n\t\t");
 			std::cout << "\n";
 		}
-		std::cout << "---\n";
-		// print solution
+		/*dbg*///printf("\n");
+		/*dbg*///printf("search(%d) DONE\n",k);
 		return;
 	}
 	// select column (to minimize branching factor)
-	int s = ((dlx::header*)(m.R))->S;
+	/*dbg*///printf("\t* select time\n");
+	/*dbg*///printf("\t* HEADERS=%d(%d)", h[0].N, h[0].S);
+	//for(dlx::header *j=static_cast<dlx::header*>(h[0].R); j!=&h[0]; j=static_cast<dlx::header*>(j->R))
+		/*dbg*///printf(", %d(%d)",j->N,j->S);
+	/*dbg*///printf("\n");
 	dlx::header *c = static_cast<dlx::header*>(m.R);
+	int s = c->S;
 	for(dlx::node *j=m.R; j!=static_cast<dlx::node*>(&m); j=j->R) {
 		if(static_cast<dlx::header*>(j)->S < s) {
 			s = static_cast<dlx::header*>(j)->S;
 			c = static_cast<dlx::header*>(j);
 		}
 	}
+	/*dbg*///printf("\t* selected %d size=%d\n",c->N, c->S);
 	// cover column c
 	cover(c);
 	// for each row...
 	for(dlx::node *r=c->D; r!=c; r=r->D) {
+		/*dbg*///printf("\t* COVER TIME(%d)\n",k);
+		/*dbg*///printf("\t* O[%d]=%d",k,r->C->N);
+		//for(dlx::node *j=r->R; j!=r; j=j->R)
+			/*dbg*///printf(",%d",j->C->N);
+		/*dbg*///printf("\n");
+		/*dbg*///printf("\t* HEADERS=%d", h[0].N);
+		//for(dlx::header *j=static_cast<dlx::header*>(h[0].R); j!=&h[0]; j=static_cast<dlx::header*>(j->R))
+			/*dbg*///printf(",%d",j->N);
+		/*dbg*///printf("\n");
 		O[k] = r;
-		// set O_k = r
 		// for each column of this node...
 		for(dlx::node *j=r->R; j!=r; j=j->R)
 			cover(j->C);
@@ -218,11 +239,14 @@ void kpfp::dlxSolver::search(int k) {
 		for(dlx::node *j=r->L; j!=r; j=j->L)
 			uncover(j->C);
 	}
+	/*dbg*///printf("\t* No luck...(%d)\n",k);
 	//uncover column c
 	uncover(c);
+	/*dbg*///printf("search(%d) DONE\n",k);
 }
 
 void kpfp::dlxSolver::cover(dlx::header *c) {
+	/*dbg*///printf("\t* cover(header:%d)\n",c->N);
 	c->R->L = c->L;
 	c->L->R = c->R;
 	for(dlx::node *i=c->D; i!=static_cast<dlx::node*>(c); i=i->D) {
@@ -235,6 +259,7 @@ void kpfp::dlxSolver::cover(dlx::header *c) {
 }
 
 void kpfp::dlxSolver::uncover(dlx::header *c) {
+	/*dbg*///printf("\t* uncover(header:%d)\n",c->N);
 	for(dlx::node *i=c->U; i!=static_cast<dlx::node*>(c); i=i->U) {
 		for(dlx::node *j=i->L; j!=i; j=j->L) {
 			++(j->C->S);
@@ -242,7 +267,7 @@ void kpfp::dlxSolver::uncover(dlx::header *c) {
 			j->U->D = j;
 		}
 	}
-	c->L->R = c->R;
-	c->R->L = c->L;
+	c->L->R = c;
+	c->R->L = c;
 }
 
