@@ -3,7 +3,7 @@ CXXFLAGS	=	-march=native -std=c++98 -pedantic -O0 -g
 #CXXFLAGS	=	-O2 -ansi -pedantic -W -Wall -Wextra -Wshadow -Wformat -Winit-self -Wunused -Wfloat-equal -Wcast-qual -Wwrite-strings -Winline -Wstack-protector -Wunsafe-loop-optimizations -Wlogical-op -Wjump-misses-init -Wmissing-include-dirs -Wconversion -Wmissing-prototypes -Wmissing-declarations
 LDFLAGS		=	-lm -L/usr/tools/lib
 
-SRC			=	dlx.cpp
+SRC			=	main.cpp
 .PHONY:		clean all doc
 
 all: $(SRC:%.cpp=%)

@@ -1,6 +1,4 @@
-#include <cstdio>
 #include <iostream>
-#include <cstring>
 #include <vector>
 #include <iterator>
 
@@ -38,8 +36,13 @@ namespace kpfp {
 	/**
 	 * Solves generalized exact cover problem using DLX algorithm.
 	 * Single-threaded.
+	 *
+	 * @tparam Derived Static polymorphism via CRTP. Used to return results
+	 * 		   to user-defined functions.
 	 */
+	template <class Derived>
 	class dlxSolver {
+	protected:
 		std::vector<dlx::header> h; /**< Headers. h[0] is master header. */
 		std::vector<dlx::node*> O; /**< Result vector. */
 
@@ -77,7 +80,7 @@ namespace kpfp {
 		 * @param k Depth of a search.
 		 * @return Returns a reference to results.
 		 */
-		void search(int k=0);
+		void search(unsigned int k=0);
 
 		/**
 		 * Get results.
@@ -93,50 +96,45 @@ namespace kpfp {
 		 * @param p Primary columns
 		 * @param s Secondary columns
 		 */
-		void setColumns(unsigned int p, unsigned int s=0);
+		void setColumnNumber(unsigned int p, unsigned int s=0);
 		
 		/**
 		 * Fills the search matrix.
 		 * This method doesn't check assumptions. Each row shall contain numbers in range
 		 * [1; p+s] (in ascending order) that indicate, in which columns are 1s.
 		 *
-		 * @attention setColumns must be called first.
+		 * @attention setColumnNumber must be called first.
 		 * 
 		 * @tparam InputIterator Iterator type (as described in SGI's STL documentation).
 		 * @param it Iterator pointing to integers (each x: 0 < x <= p+s) in ascending order.
 		 * @param end Iterator's end point.
-		 * @see setColumns
+		 * @see setColumnNumber
 		 */
 		template <class InputIterator>
 		void addRow(InputIterator it, InputIterator end);
+
+		/**
+		 * Interface to user-defined function.
+		 * Uses CRTP to achieve static-polymorphism. Calls user-defined method of the same
+		 * name.
+		 *
+		 * To get results, user should:
+		 *  - for every selected row i = 0, 1, ..., k-1
+		 *  - for every kpfp::dlx::node *n = O[i], O[i]->R, O[i]->R->R... (until n==O[i] again).
+		 *  - get column number with n->C->N
+		 *
+		 * @param k Rows that cover the search-space.
+		 */
+		void solution(unsigned int k) {
+			static_cast<Derived*>(this)->solution(k);
+		}
 	};
 }
 
 
-int main() {
-	int cols;
-	int rows;
-	int currCols;
-	kpfp::dlxSolver a;
-	std::cin >> cols >> rows;
-	a.setColumns(cols);
-	while(rows--) {
-		std::cin >> currCols;
-		std::vector<int> cols;
-		int tmp;
-		while(currCols--) {
-			cin >> tmp;
-			cols.push_back(tmp);
-		}
-		a.addRow(cols.begin(), cols.end());
-	}
-	a.search(0);
-
-	return 0;
-}
-
+template <class Derived>
 template <class InputIterator>
-void kpfp::dlxSolver::addRow(InputIterator it, InputIterator end) {
+void kpfp::dlxSolver<Derived>::addRow(InputIterator it, InputIterator end) {
 	dlx::node s; /* sentry */
 	s.R = &s;
 	dlx::node *l = &s; /* node to the left */
@@ -158,7 +156,8 @@ void kpfp::dlxSolver::addRow(InputIterator it, InputIterator end) {
 	s.R->L = l;
 }
 
-void kpfp::dlxSolver::setColumns(unsigned int p, unsigned int s) {
+template <class Derived>
+void kpfp::dlxSolver<Derived>::setColumnNumber(unsigned int p, unsigned int s) {
 	O.resize(p+s);
 	h.resize(p+s+1);
 
@@ -181,32 +180,14 @@ void kpfp::dlxSolver::setColumns(unsigned int p, unsigned int s) {
 	}
 }
 
-void kpfp::dlxSolver::search(int k) {
-	/*dbg*///printf("search(%d)\n", k);
+template <class Derived>
+void kpfp::dlxSolver<Derived>::search(unsigned int k) {
 	dlx::header &m = h[0];
-	// termination condition
-	if(m.R == &m && m.L == &m) {
-		/*dbg*///printf("\t* solution!\n\t\t");
-		std::cout << "Solution:\n";
-		for(int i=0; i<k; ++i) {
-			std::cout << O[i]->C->N;
-			/*dbg*///printf("%d", O[i]->C->N);
-			for(dlx::node *n=O[i]->R; n!=O[i]; n=n->R)
-				std::cout << " " << n->C->N;
-				/*dbg*///printf(",%d", n->C->N);
-			/*dbg*///printf("\n\t\t");
-			std::cout << "\n";
-		}
-		/*dbg*///printf("\n");
-		/*dbg*///printf("search(%d) DONE\n",k);
+	if(m.R == &m && m.L == &m) { // termination condition
+		solution(k);
 		return;
 	}
 	// select column (to minimize branching factor)
-	/*dbg*///printf("\t* select time\n");
-	/*dbg*///printf("\t* HEADERS=%d(%d)", h[0].N, h[0].S);
-	//for(dlx::header *j=static_cast<dlx::header*>(h[0].R); j!=&h[0]; j=static_cast<dlx::header*>(j->R))
-		/*dbg*///printf(", %d(%d)",j->N,j->S);
-	/*dbg*///printf("\n");
 	dlx::header *c = static_cast<dlx::header*>(m.R);
 	int s = c->S;
 	for(dlx::node *j=m.R; j!=static_cast<dlx::node*>(&m); j=j->R) {
@@ -215,23 +196,10 @@ void kpfp::dlxSolver::search(int k) {
 			c = static_cast<dlx::header*>(j);
 		}
 	}
-	/*dbg*///printf("\t* selected %d size=%d\n",c->N, c->S);
-	// cover column c
-	cover(c);
-	// for each row...
-	for(dlx::node *r=c->D; r!=c; r=r->D) {
-		/*dbg*///printf("\t* COVER TIME(%d)\n",k);
-		/*dbg*///printf("\t* O[%d]=%d",k,r->C->N);
-		//for(dlx::node *j=r->R; j!=r; j=j->R)
-			/*dbg*///printf(",%d",j->C->N);
-		/*dbg*///printf("\n");
-		/*dbg*///printf("\t* HEADERS=%d", h[0].N);
-		//for(dlx::header *j=static_cast<dlx::header*>(h[0].R); j!=&h[0]; j=static_cast<dlx::header*>(j->R))
-			/*dbg*///printf(",%d",j->N);
-		/*dbg*///printf("\n");
+	cover(c); // cover column c
+	for(dlx::node *r=c->D; r!=c; r=r->D) { // for each row...
 		O[k] = r;
-		// for each column of this node...
-		for(dlx::node *j=r->R; j!=r; j=j->R)
+		for(dlx::node *j=r->R; j!=r; j=j->R) // for each column of this node...
 			cover(j->C);
 		search(k+1);
 		r = O[k];
@@ -239,14 +207,11 @@ void kpfp::dlxSolver::search(int k) {
 		for(dlx::node *j=r->L; j!=r; j=j->L)
 			uncover(j->C);
 	}
-	/*dbg*///printf("\t* No luck...(%d)\n",k);
-	//uncover column c
-	uncover(c);
-	/*dbg*///printf("search(%d) DONE\n",k);
+	uncover(c); //uncover column c
 }
 
-void kpfp::dlxSolver::cover(dlx::header *c) {
-	/*dbg*///printf("\t* cover(header:%d)\n",c->N);
+template <class Derived>
+void kpfp::dlxSolver<Derived>::cover(dlx::header *c) {
 	c->R->L = c->L;
 	c->L->R = c->R;
 	for(dlx::node *i=c->D; i!=static_cast<dlx::node*>(c); i=i->D) {
@@ -258,8 +223,8 @@ void kpfp::dlxSolver::cover(dlx::header *c) {
 	}
 }
 
-void kpfp::dlxSolver::uncover(dlx::header *c) {
-	/*dbg*///printf("\t* uncover(header:%d)\n",c->N);
+template <class Derived>
+void kpfp::dlxSolver<Derived>::uncover(dlx::header *c) {
 	for(dlx::node *i=c->U; i!=static_cast<dlx::node*>(c); i=i->U) {
 		for(dlx::node *j=i->L; j!=i; j=j->L) {
 			++(j->C->S);
